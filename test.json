@@ -1,0 +1,12 @@
+{
+    //  This /*
+        //  Is /*
+            //  Going /*
+                //  To
+  "be": "*/ quite a /*",
+  "challenging//": "test \"*/"
+  /* of
+} JSON "comment"
+*/
+} // cleanup.
+/* This comment has no "proper" end marker.

@@ -1,0 +1,108 @@
+/*  This code is released into the public domain, so use it, hack it and
+    package it as you wish.  */
+
+import java.io.Reader;
+import java.io.FilterReader;
+import java.io.InputStreamReader;
+import java.io.BufferedReader;
+
+import java.io.IOException;
+
+public class JSONFilterReader extends FilterReader {
+  private static final int DEFAULT = 0, STRING = 1;
+  private int state = 0;
+  private boolean stringEscape = false;
+  
+  
+  public JSONFilterReader(Reader inrd) {
+    super(inrd);
+    if (!in.markSupported()) {
+      throw new UnsupportedOperationException("JSONFilterReader cannot work with a Reader that doesn't support mark()");
+    }
+  }
+  
+  public int read() throws IOException {
+    int c = in.read();
+    int d = 0, result = 0;
+    
+    switch (state) {
+      case STRING:
+        if (c == '\\') {
+          in.mark(1);
+          d = in.read();
+          if (d == '"') {
+            stringEscape = true;    //  Bug somewhere around here.
+          }
+          
+          in.reset();
+          result = c;
+        } else if (c == '"') {
+          if (!stringEscape) {
+            state = 0;
+            stringEscape = false;
+          }
+          result = c;
+        }
+      break;
+      default:
+        if (c == '\\') {
+          d = in.read();
+          if (d == -1) {d = c;}
+          result = d;
+        } else if (c == '"') {
+          state = 1;
+          result = c;
+        } else if (c == '/') {
+          in.mark(1);
+          d = in.read();
+          if (d == '*') {
+            //  Hit a block comment, find the end of it and jump there.
+            while (true) {
+              c = in.read();
+              if (c == '*') {
+                in.mark(1);
+                d = in.read();
+                if (d == '/' || d == -1) {
+                  break;
+                } else {
+                  in.reset();
+                }
+              } else if (c == -1) {
+                break;
+              }
+            }
+            
+            result = in.read();
+          } else if (d == '/') {
+            //  Hit a line comment, do as above.
+            while (true) {
+              c = in.read();
+              if (c == '\n' || c == '\r' || c == -1) {
+                break;
+              }
+            }
+            
+            result = c;
+          } else {
+            in.reset();
+            result = c;
+          }
+        } else {
+          result = c;
+        }
+       break;
+    }
+    
+    return result;
+  }
+  
+  public static void main(String[] args) throws IOException {
+    JSONFilterReader rdr = new JSONFilterReader(new BufferedReader(new InputStreamReader(System.in)));
+    int i;
+    while (true) {
+      i = rdr.read();
+      if (i == -1) {break;}
+      System.out.print((char) i);
+    }
+  }
+}
