@@ -9,10 +9,8 @@ import java.io.BufferedReader;
 import java.io.IOException;
 
 public class JSONFilterReader extends FilterReader {
-  private static final int DEFAULT = 0, STRING = 1;
-  private int state = 0;
-  private boolean stringEscape = false;
-  
+  private static final int DEFAULT = 0, STRING = 1, STRING_ESCAPE = 2;
+  private int state = 0;  
   
   public JSONFilterReader(Reader inrd) {
     super(inrd);
@@ -26,30 +24,24 @@ public class JSONFilterReader extends FilterReader {
     int d = 0, result = 0;
     
     switch (state) {
+      case STRING_ESCAPE:
+        if (c == '"') {
+          state = 1;
+        }
+        result = c;
+      break;
       case STRING:
-        if (c == '\\') {
-          in.mark(1);
-          d = in.read();
-          if (d == '"') {
-            stringEscape = true;    //  Bug somewhere around here.
-          }
-          
-          in.reset();
+        if (c == '"') {
+          state = 0;
           result = c;
-        } else if (c == '"') {
-          if (!stringEscape) {
-            state = 0;
-            stringEscape = false;
-          }
+        } else if (c == '\\') {
+          state = 2;
+        } else {
           result = c;
         }
       break;
       default:
-        if (c == '\\') {
-          d = in.read();
-          if (d == -1) {d = c;}
-          result = d;
-        } else if (c == '"') {
+        if (c == '"') {
           state = 1;
           result = c;
         } else if (c == '/') {
@@ -94,6 +86,21 @@ public class JSONFilterReader extends FilterReader {
     }
     
     return result;
+  }
+  
+  public int read(char[] cbuf, int offset, int len) throws IOException {
+    int c, i;
+    for (i = 0; i < len; i++) {
+      c = read();
+      if (c == -1) {i = c; break;}
+      cbuf[offset + i] = (char) c;
+    }
+    
+    return i;
+  }
+  
+  public long skip() throws IOException {
+    throw new UnsupportedOperationException("this class does not support the skipping of characters");
   }
   
   public static void main(String[] args) throws IOException {
